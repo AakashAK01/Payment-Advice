@@ -558,27 +558,27 @@ class PaymentAdviceWidget extends StatelessWidget {
             ),
             child: Column(
               children: [
-                _buildRow(
+                detailsRow(
                   'Transaction ID',
                   transaction['Transaction ID']?.toString() ?? '--',
                 ),
                 const SizedBox(height: 12),
-                _buildRow(
+                detailsRow(
                   'Bank ID',
                   getBankId(transaction['Transaction ID']?.toString() ?? ''),
                 ),
                 const SizedBox(height: 12),
-                _buildRow(
+                detailsRow(
                   'Payment Amount',
                   '₹ ${transaction['Amount']?.toString() ?? '--'}',
                   isAmount: true,
                 ),
                 const SizedBox(height: 12),
-                _buildRow('UTR', transaction['UTR']?.toString() ?? '-'),
+                detailsRow('UTR', transaction['UTR']?.toString() ?? '-'),
                 const SizedBox(height: 12),
-                _buildRow('Mode', 'UPI'),
+                detailsRow('Mode', 'UPI'),
                 const SizedBox(height: 12),
-                _buildRow(
+                detailsRow(
                   'Remark',
                   transaction['Payment Remark']?.toString() ?? '',
                 ),
@@ -599,19 +599,19 @@ class PaymentAdviceWidget extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _buildRow(
+                detailsRow(
                   'Beneficiary Name',
                   transaction['Beneficiary Name']?.toString() ?? '',
                 ),
                 const SizedBox(height: 12),
-                _buildRow(
+                detailsRow(
                   'UPI ID',
                   transaction['Beneficiary UPI ID']?.toString() ?? '',
                 ),
                 const SizedBox(height: 12),
-                _buildRow('Account Number', "--"),
+                detailsRow('Account Number', "--"),
                 const SizedBox(height: 12),
-                _buildRow('IFSC', "--"),
+                detailsRow('IFSC', "--"),
                 const SizedBox(height: 16),
               ],
             ),
@@ -621,7 +621,7 @@ class PaymentAdviceWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildRow(String label, String value, {bool isAmount = false}) {
+  Widget detailsRow(String label, String value, {bool isAmount = false}) {
     return Row(
       children: [
         Expanded(
