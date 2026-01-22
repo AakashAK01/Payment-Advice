@@ -617,13 +617,13 @@ class PaymentAdviceWidget extends StatelessWidget {
                 const SizedBox(height: 16),
                 Column(
                   children: [
-                    Text(
-                      'Payment using Bulkpe',
-                      style: AppStyle.h6SemiBoldMontserrat.copyWith(
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: SizeConfig.sm),
+                    // Text(
+                    //   'Payment using Bulkpe',
+                    //   style: AppStyle.h6SemiBoldMontserrat.copyWith(
+                    //     fontSize: 14,
+                    //   ),
+                    // ),
+                    // const SizedBox(height: SizeConfig.sm),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
