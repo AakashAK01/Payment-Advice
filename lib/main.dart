@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:ui' as ui;
-import 'package:archive/archive.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -42,8 +41,8 @@ class _PaymentAdviceGeneratorState extends State<PaymentAdviceGenerator> {
   final GlobalKey _globalKey = GlobalKey();
   String statusMessage = '';
   bool isFileLoaded = false;
-  List<Uint8List?> capturedImages = [];
-  int failedCaptures = 0;
+  int successCount = 0;
+  int failedCount = 0;
 
   @override
   void initState() {
@@ -163,26 +162,26 @@ class _PaymentAdviceGeneratorState extends State<PaymentAdviceGenerator> {
     }
   }
 
-  Future<void> generateAllScreenshotsAsZip() async {
+  Future<void> generateAllScreenshots() async {
     if (!mounted) return;
 
     setState(() {
       isGenerating = true;
       currentIndex = 0;
-      capturedImages = [];
-      failedCaptures = 0;
+      successCount = 0;
+      failedCount = 0;
       statusMessage = 'Starting generation...';
     });
 
     try {
-      // Capture all screenshots with retry logic
+      // Capture and download each screenshot individually
       for (int i = 0; i < transactions.length; i++) {
         if (!mounted) break;
 
         setState(() {
           currentIndex = i;
           statusMessage =
-              'Capturing ${i + 1} of ${transactions.length}... (Failed: $failedCaptures)';
+              'Processing ${i + 1} of ${transactions.length}... (Success: $successCount, Failed: $failedCount)';
         });
 
         await Future.delayed(const Duration(milliseconds: 1500));
@@ -202,44 +201,46 @@ class _PaymentAdviceGeneratorState extends State<PaymentAdviceGenerator> {
             print(
               '⚠ Retry $retries/$maxRetries for: ${transactions[i]['Transaction ID']}',
             );
-            await Future.delayed(const Duration(milliseconds: 500));
+            await Future.delayed(const Duration(milliseconds: 1000));
           }
         }
 
         if (image != null) {
-          capturedImages.add(image);
+          // Download immediately
+          downloadImage(image, i);
+          successCount++;
           print(
-            '✓ Captured [${i + 1}/${transactions.length}]: ${transactions[i]['Transaction ID']} (${(image.length / 1024).toStringAsFixed(1)} KB)',
+            '✓ Downloaded [${i + 1}/${transactions.length}]: ${transactions[i]['Transaction ID']} (${(image.length / 1024).toStringAsFixed(1)} KB)',
           );
         } else {
-          capturedImages.add(null);
-          failedCaptures++;
+          failedCount++;
           print(
             '✗ Failed after $maxRetries retries: ${transactions[i]['Transaction ID']}',
           );
         }
 
         // Small delay before next capture
-        await Future.delayed(const Duration(milliseconds: 300));
+        await Future.delayed(const Duration(milliseconds: 500));
 
-        // Force garbage collection hint every 50 images
-        if ((i + 1) % 50 == 0) {
-          print('Processing batch checkpoint: ${i + 1}/${transactions.length}');
-          await Future.delayed(const Duration(milliseconds: 1000));
+        // Update progress
+        if (mounted) {
+          setState(() {
+            statusMessage =
+                'Processing ${i + 1} of ${transactions.length}... (Success: $successCount, Failed: $failedCount)';
+          });
         }
       }
 
-      if (mounted && capturedImages.isNotEmpty) {
-        final successCount = capturedImages.where((img) => img != null).length;
-
+      if (mounted) {
         setState(() {
-          statusMessage =
-              'Creating ZIP file... ($successCount successful, $failedCaptures failed)';
+          if (failedCount == 0) {
+            statusMessage =
+                '✓ Successfully downloaded all $successCount files!';
+          } else {
+            statusMessage =
+                '⚠ Downloaded $successCount files. Failed: $failedCount (Check console)';
+          }
         });
-
-        // Create ZIP file
-        await Future.delayed(const Duration(milliseconds: 500));
-        createAndDownloadZip();
       }
     } catch (e) {
       print('Error generating screenshots: $e');
@@ -266,81 +267,31 @@ class _PaymentAdviceGeneratorState extends State<PaymentAdviceGenerator> {
     }
   }
 
-  void createAndDownloadZip() {
+  void downloadImage(Uint8List imageData, int index) {
     try {
-      final archive = Archive();
-      int successCount = 0;
-      final failedIds = <String>[];
-
-      // Add all captured images to the archive
-      for (int i = 0; i < capturedImages.length; i++) {
-        final image = capturedImages[i];
-
-        if (image != null) {
-          final transactionId =
-              transactions[i]['Transaction ID']?.toString() ?? 'transaction_$i';
-          final fileName = 'payment_advice_$transactionId.png';
-
-          final archiveFile = ArchiveFile(fileName, image.length, image);
-
-          archive.addFile(archiveFile);
-          successCount++;
-        } else {
-          failedIds.add(
-            transactions[i]['Transaction ID']?.toString() ?? 'transaction_$i',
-          );
-        }
-      }
-
-      // Encode the archive as a ZIP
-      print('Encoding ZIP with $successCount files...');
-      final zipData = ZipEncoder().encode(archive);
+      final transactionId =
+          transactions[index]['Transaction ID']?.toString() ??
+          'transaction_$index';
+      final fileName = 'payment_advice_$transactionId.png';
 
       // Create a Blob and download
-      final blob = html.Blob([zipData], 'application/zip');
+      final blob = html.Blob([imageData], 'image/png');
       final url = html.Url.createObjectUrlFromBlob(blob);
 
       final anchor = html.AnchorElement(href: url)
-        ..setAttribute(
-          'download',
-          'payment_advices_${DateTime.now().millisecondsSinceEpoch}.zip',
-        )
+        ..setAttribute('download', fileName)
         ..style.display = 'none';
 
       html.document.body?.append(anchor);
       anchor.click();
 
-      // Clean up
+      // Clean up after a short delay
       Future.delayed(const Duration(milliseconds: 100), () {
         html.Url.revokeObjectUrl(url);
         anchor.remove();
       });
-
-      setState(() {
-        if (failedIds.isEmpty) {
-          statusMessage = '✓ Downloaded all $successCount screenshots as ZIP!';
-        } else {
-          statusMessage =
-              '⚠ Downloaded $successCount screenshots. Failed: ${failedIds.length} (Check console for IDs)';
-        }
-      });
-
-      print('✓ ZIP download successful with $successCount images');
-      print(
-        'ZIP size: ${(zipData.length / 1024 / 1024).toStringAsFixed(2)} MB',
-      );
-
-      if (failedIds.isNotEmpty) {
-        print('❌ Failed Transaction IDs (${failedIds.length}):');
-        for (final id in failedIds) {
-          print('  - $id');
-        }
-      }
     } catch (e) {
-      print('✗ Error creating ZIP: $e');
-      setState(() {
-        statusMessage = 'Error creating ZIP: $e';
-      });
+      print('✗ Error downloading image $index: $e');
     }
   }
 
@@ -400,10 +351,10 @@ class _PaymentAdviceGeneratorState extends State<PaymentAdviceGenerator> {
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: TextButton.icon(
-                onPressed: generateAllScreenshotsAsZip,
-                icon: const Icon(Icons.folder_zip, color: Colors.white),
+                onPressed: generateAllScreenshots,
+                icon: const Icon(Icons.download, color: Colors.white),
                 label: Text(
-                  'Download as ZIP (${transactions.length})',
+                  'Download All (${transactions.length})',
                   style: const TextStyle(color: Colors.white),
                 ),
               ),
@@ -424,7 +375,7 @@ class _PaymentAdviceGeneratorState extends State<PaymentAdviceGenerator> {
               padding: const EdgeInsets.all(16),
               color: isGenerating
                   ? Colors.blue[50]
-                  : (failedCaptures > 0 ? Colors.orange[50] : Colors.green[50]),
+                  : (failedCount > 0 ? Colors.orange[50] : Colors.green[50]),
               child: Text(
                 statusMessage,
                 style: TextStyle(
@@ -432,7 +383,7 @@ class _PaymentAdviceGeneratorState extends State<PaymentAdviceGenerator> {
                   fontWeight: FontWeight.w500,
                   color: isGenerating
                       ? Colors.blue[900]
-                      : (failedCaptures > 0
+                      : (failedCount > 0
                             ? Colors.orange[900]
                             : Colors.green[900]),
                 ),
@@ -530,8 +481,8 @@ class _PaymentAdviceGeneratorState extends State<PaymentAdviceGenerator> {
                                   isFileLoaded = false;
                                   currentIndex = 0;
                                   statusMessage = '';
-                                  capturedImages = [];
-                                  failedCaptures = 0;
+                                  successCount = 0;
+                                  failedCount = 0;
                                 });
                               },
                               icon: const Icon(Icons.refresh),
