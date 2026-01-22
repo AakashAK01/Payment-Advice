@@ -8,6 +8,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:payment_advice/styles/app_style.dart';
+import 'package:payment_advice/styles/size_config.dart';
 
 void main() {
   runApp(const MyApp());
@@ -613,6 +615,34 @@ class PaymentAdviceWidget extends StatelessWidget {
                 const SizedBox(height: 12),
                 detailsRow('IFSC', "--"),
                 const SizedBox(height: 16),
+                Column(
+                  children: [
+                    Text(
+                      'Payment using Bulkpe',
+                      style: AppStyle.h6SemiBoldMontserrat.copyWith(
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: SizeConfig.sm),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SvgPicture.asset(
+                          "assets/images/bulkpeLogoName.svg",
+                          height: SizeConfig.lg,
+                        ),
+                        // const SizedBox(
+                        //   width: SizeConfig.sm,
+                        // ),
+                        // Image.asset(
+                        //   ImagePath.axisBankLogo,
+                        //   height: SizeConfig.md,
+                        // )
+                      ],
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
